@@ -4,8 +4,10 @@ import sys
 import time
 import random
 from datetime import datetime
+from cassandra import ConsistencyLevel
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster
+from cassandra.query import SimpleStatement
 from textwrap import dedent
 
 KEYSPACE_NAME = "myapp"
@@ -135,9 +137,11 @@ def main():
         log_print(f"  ✓ Inserted successfully")
 
         # Get total row count
-        count_result = session.execute(
-            f"SELECT COUNT(*) FROM {KEYSPACE_NAME}.{TABLE_NAME}"
+        query = SimpleStatement(
+            f"SELECT COUNT(*) FROM {KEYSPACE_NAME}.{TABLE_NAME}",
+            consistency_level=ConsistencyLevel.QUORUM,
         )
+        count_result = session.execute(query)
         total_rows = count_result.one()[0]
         log_print(f"  Total rows in table: {total_rows}")
 
@@ -147,12 +151,14 @@ def main():
         # Run ANN search using the same vector
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_print(f"  Running ANN search with the inserted vector... at {timestamp}")
-        result = session.execute(
+        query = SimpleStatement(
             f"SELECT commenter, comment "
             f"FROM {KEYSPACE_NAME}.{TABLE_NAME} "
             f"ORDER BY comment_vector ANN OF [{vector_str}] "
-            f"LIMIT 3"
+            f"LIMIT 3",
+            consistency_level=ConsistencyLevel.QUORUM
         )
+        result = session.execute(query)
 
         rows = list(result)
         if rows:
